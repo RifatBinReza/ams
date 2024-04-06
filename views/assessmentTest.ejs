@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Test</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.0/dist/css/bootstrap.min.css"
+    integrity="sha384-KyZXEAg3QhqLMpG8r+8fhAXLRk2vvoC2f3B09zVXn8CA5QIVfZOJ3BCsw2P0p/We" crossorigin="anonymous" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/limonte-sweetalert2/11.1.2/sweetalert2.css"
+    integrity="sha512-8543GQ3j5GD6UFe+71cFcnC1UfXISyhtxIqppx1rT21H/G/WP6YdgHHMCcaMoOCKTFasS2M0HzmXFTXmYSz4oA=="
+    crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <style>
+
+  </style>
+</head>
+
+<body>
+
+  <div class="container">
+    <h1>Test <a class="btn btn-danger btn-sm" style="float: right; margin-top:10px;" href="/logout">Logout</a>
+    </h1>
+    <h2 class="mb-4" id="assessmentTitle">Assessment Title: </h2>
+    <form id="assessmentForm">
+    </form>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"
+    integrity="sha512-894YE6QWD5I59HgZOGReFYm4dnWc1Qt5NtvYSaNcOP+u1T9qYdvdihz0PPSiiqn/+/3e7Jo4EaG7TubfWGUrMQ=="
+    crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.0/dist/js/bootstrap.min.js"
+    integrity="sha384-cn7l7gDp0eyniUwwAZgrzD06kc/tftFf19TOAs2zVinnD/C7E91j9yyk5//jjpt/"
+    crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/limonte-sweetalert2/11.1.2/sweetalert2.min.js"
+    integrity="sha512-2sjxi4MoP9Gn7QE0NhJdxOFVMK/qYsZO6JnO6pngGvck8p5UPwFX2LV5AsAMOQYgvbzMmki6sIqJ90YO3STAnA=="
+    crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+  <script>
+    if (!localStorage.getItem("token")) {
+      window.location.href = "/login"
+    }
+
+    $(document).ready(function () {
+      const assessmentId = window.location.pathname.split("/").pop(); // There's much better ways to handle this but keeping it like this for simplicity
+      $.ajax({
+        type: "GET",
+        url: "/api/secure/assessments/" + assessmentId,
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+        success: function (response) {
+          const assessment = response.data;
+          console.log(assessment);
+          if (assessment) {
+            $('#assessmentTitle').html('Assessment Title: ' + assessment.title);
+            const sections = assessment.sections;
+            let sHtml = '';
+            sections.forEach((section, sIndex) => {
+              const questions = section.questions;
+              let qHtml = '';
+              questions.forEach((question, qIndex) => {
+                const options = question.options;
+                let oHtml = '';
+                options.forEach((option, oIndex) => {
+                  oHtml += `<div class="form-check">
+                    <input class="form-check-input" type="${question.type === 'MCQ' ? 'radio' : 'checkbox'}" name="section-${sIndex}-question-${qIndex}" id="section-${sIndex}-question-${qIndex}-option-${oIndex}">
+                    <label class="form-check-label" for="section-${sIndex}-question-${qIndex}-option-${oIndex}">${option.text}</label>
+                  </div>`;
+                });
+                qHtml += `<div class="mb-3">
+                  <label class="form-label" id="section-${sIndex}-question-${qIndex}">${qIndex + 1}. ${question.text}</label>
+                  ${oHtml}
+                </div>`;
+              });
+              sHtml += `<div class="mb-5">
+                <h3 id="section-1-title">Section ${sIndex + 1}: ${section.title}</h3>
+                ${qHtml}
+              </div>`;
+            });
+            sHtml += '<button type="submit" class="btn btn-primary">Submit Assessment</button>';
+            $('#assessmentForm').html(sHtml);
+          }
+        },
+        error: function (jqXHR, error, errorThrown) {
+          console.log(jqXHR)
+          if (jqXHR.status && jqXHR.status == 401) {
+            localStorage.removeItem("token");
+            window.location.href = "/login";
+          }
+        }
+      });
+    });
+  </script>
+</body>
+
+</html>

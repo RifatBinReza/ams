@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  ams_server:
+    container_name: ams_server
+
+    restart: always
+
+    build:
+      context: .
+      target: development
+
+    ports:
+      - 3000:3000
+
+    volumes:
+      - .:/app
+      - /app/node_modules
+
+    depends_on:
+      - postgresql
+
+  postgresql:
+    image: postgres:latest
+
+    restart: always
+
+    environment:
+      POSTGRES_DATABASE: ams
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+
+    container_name: postgresql
+
+    ports:
+      - "5432:5432"

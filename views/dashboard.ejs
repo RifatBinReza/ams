@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.0/dist/css/bootstrap.min.css"
+    integrity="sha384-KyZXEAg3QhqLMpG8r+8fhAXLRk2vvoC2f3B09zVXn8CA5QIVfZOJ3BCsw2P0p/We" crossorigin="anonymous" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/limonte-sweetalert2/11.1.2/sweetalert2.css"
+    integrity="sha512-8543GQ3j5GD6UFe+71cFcnC1UfXISyhtxIqppx1rT21H/G/WP6YdgHHMCcaMoOCKTFasS2M0HzmXFTXmYSz4oA=="
+    crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <style>
+
+  </style>
+</head>
+
+<body>
+
+  <div class="container">
+    <h1>Assessments <a class="btn btn-danger btn-sm" style="float: right; margin-top:10px;" href="/logout">Logout</a></h1>
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createAssessmentModal">Create</button>
+    <table class="table">
+      <thead>
+        <tr>
+          <th scope="col">Assessment</th>
+          <th scope="col">Actions</th>
+        </tr>
+      </thead>
+      <tbody id="assessment-tbody">
+
+      </tbody>
+    </table>
+  </div>
+
+  <div class="modal fade" id="createAssessmentModal" tabindex="-1" aria-labelledby="createAssessmentModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="createAssessmentModalLabel">Create New Assessment</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <form id="createAssessmentForm">
+          <div class="modal-body">
+            <div class="mb-3">
+              <label for="assessmentTitle" class="form-label">Assessment Title</label>
+              <input type="text" class="form-control" id="assessmentTitle" name="assessmentTitle" required>
+            </div>
+            <div id="sectionsContainer">
+            </div>
+            <button type="button" class="btn btn-secondary mt-2" id="addSectionBtn">Add Section</button>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            <button type="submit" class="btn btn-primary">Save changes</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"
+    integrity="sha512-894YE6QWD5I59HgZOGReFYm4dnWc1Qt5NtvYSaNcOP+u1T9qYdvdihz0PPSiiqn/+/3e7Jo4EaG7TubfWGUrMQ=="
+    crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.0/dist/js/bootstrap.min.js"
+    integrity="sha384-cn7l7gDp0eyniUwwAZgrzD06kc/tftFf19TOAs2zVinnD/C7E91j9yyk5//jjpt/"
+    crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/limonte-sweetalert2/11.1.2/sweetalert2.min.js"
+    integrity="sha512-2sjxi4MoP9Gn7QE0NhJdxOFVMK/qYsZO6JnO6pngGvck8p5UPwFX2LV5AsAMOQYgvbzMmki6sIqJ90YO3STAnA=="
+    crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+  <script>
+    if (!localStorage.getItem("token")) {
+      window.location.href = "/login"
+    }
+
+    $(document).ready(function () {
+      $.ajax({
+        type: "GET",
+        url: "/api/secure/assessments",
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+        success: function (response) {
+          const assessments = response.data;
+          if (assessments.length > 0) {
+            let html = '';
+            assessments.forEach((assessment) => {
+              const tr = `<tr>
+              <th scope="col">${assessment.title}</th>
+              <th scope="col"><button type="button" class="btn btn-secondary">Edit</button></th>
+            </tr>`;
+              html += tr;
+            });
+            $('#assessment-tbody').html(html);
+          }
+        },
+        error: function (jqXHR, error, errorThrown) {
+          console.log(jqXHR)
+          if (jqXHR.status && jqXHR.status == 401) {
+            localStorage.removeItem("token");
+            window.location.href = "/login";
+          }
+        }
+      });
+
+      $('#addSectionBtn').click(function () {
+        addSection();
+      });
+
+      $('#sectionsContainer').on('click', '.addQuestionBtn', function () {
+        const sectionId = $(this).closest('.section').attr('id');
+        addQuestion(sectionId);
+      });
+
+      $(document).on('click', '.addOptionBtn', function () {
+        const questionId = $(this).closest('.question').attr('id');
+        const type = $(this).siblings('.questionTypeSelect').val();
+        addOption(questionId, type);
+      });
+
+      $(document).on('click', '.btn-remove', function () {
+        $(this).closest('.removable').remove();
+      });
+
+      $('#createAssessmentForm').submit(function (e) {
+        e.preventDefault();
+        if (validateForm()) {
+          const formData = collectFormData();
+          console.log(formData);
+          $.ajax({
+            type: "POST",
+            url: "/api/secure/assessments",
+            data: formData,
+            headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+            success: function (response) {
+              console.log(response);
+              Swal.fire({
+                title: 'New assessment created!',
+                icon: 'success',
+              });
+              window.location.reload();
+            },
+            error: function (jqXHR, error, errorThrown) {
+              console.log(jqXHR);
+              Swal.fire({
+                title: 'Failed to create new assessment!',
+                icon: 'error',
+              });
+              if (jqXHR.status && jqXHR.status == 401) {
+                localStorage.removeItem("token");
+                window.location.href = "/login";
+              }
+            }
+          });
+        }
+      });
+    });
+
+    function addSection() {
+      const sectionId = 'section-' + Date.now();
+      $('#sectionsContainer').append(`
+        <div class="section removable" id="${sectionId}">
+            <div class="mb-3">
+                <label class="form-label">Section Title</label>
+                <input type="text" class="form-control sectionTitle" placeholder="Enter section title" required>
+            </div>
+            <div class="questionsContainer">
+            </div>
+            <button type="button" class="btn btn-info addQuestionBtn">Add Question</button>
+            <button type="button" class="btn btn-danger btn-remove">Remove Section</button>
+            <hr>
+        </div>
+    `);
+    }
+
+    function addQuestion(sectionId) {
+      const questionId = 'question-' + Date.now();
+      $('#' + sectionId + ' .questionsContainer').append(`
+        <div class="question removable" id="${questionId}">
+            <input type="text" class="form-control questionText mb-2" placeholder="Question Title" required>
+            <select class="form-select mb-2 questionTypeSelect">
+                <option value="MCQ">MCQ</option>
+                <option value="MSQ">MSQ</option>
+            </select>
+            <div class="optionsContainer">
+            </div>
+            <button type="button" class="btn btn-warning addOptionBtn">Add Option</button>
+            <button type="button" class="btn btn-danger btn-remove">Remove Question</button>
+        </div>
+    `);
+    }
+
+    function addOption(questionId, type) {
+      const optionId = 'option-' + Date.now();
+      const nameAttribute = type === 'MCQ' ? `name="option-${questionId}"` : '';
+      $('#' + questionId + ' .optionsContainer').append(`
+        <div class="option removable" id="${optionId}">
+            <input type="${type === 'MCQ' ? 'radio' : 'checkbox'}" ${nameAttribute} class="me-2">
+            <input type="text" class="form-control optionText d-inline-block" style="width: auto;" placeholder="Option text">
+            <button type="button" class="btn btn-danger btn-remove">Remove Option</button>
+        </div>
+    `);
+    }
+
+    function validateForm() {
+      let isValid = true;
+      let errorMessage = '';
+
+      const assessmentTitle = $('#assessmentTitle').val().trim();
+      if (!assessmentTitle) {
+        errorMessage += 'Assessment title is required.\n';
+        isValid = false;
+      }
+
+      $('.section').each(function (index) {
+        const sectionIndex = index + 1;
+        const sectionTitle = $(this).find('.sectionTitle').val().trim();
+        if (!sectionTitle) {
+          errorMessage += `Section ${sectionIndex} title is required.\n`;
+          isValid = false;
+        }
+
+        $(this).find('.question').each(function (qIndex) {
+          const questionIndex = qIndex + 1;
+          const questionText = $(this).find('.questionText').val().trim();
+          if (!questionText) {
+            errorMessage += `Question ${questionIndex} in Section ${sectionIndex} title is required.\n`;
+            isValid = false;
+          }
+
+          const options = $(this).find('.option');
+          if (options.length === 0) {
+            errorMessage += `At least one option is required for Question ${questionIndex} in Section ${sectionIndex}.\n`;
+            isValid = false;
+          } else {
+            let optionTextFilled = false;
+            options.each(function () {
+              const optionText = $(this).find('.optionText').val().trim();
+              if (optionText) {
+                optionTextFilled = true;
+              }
+            });
+
+            if (!optionTextFilled) {
+              errorMessage += `All options must have text for Question ${questionIndex} in Section ${sectionIndex}.\n`;
+              isValid = false;
+            }
+          }
+          const questionType = $(this).find('.questionTypeSelect').val();
+          if (questionType === 'MCQ') {
+            const selectedOptions = $(this).find('input[type="radio"]:checked').length;
+            if (selectedOptions === 0) {
+              errorMessage += `At least one correct option must be selected for MCQ Question ${questionIndex} in Section ${sectionIndex}.\n`;
+              isValid = false;
+            }
+          }
+        });
+      });
+
+      if (!isValid) {
+        alert(errorMessage);
+      }
+
+      return isValid;
+    }
+
+    function collectFormData() {
+      const assessmentData = {
+        title: $('#assessmentTitle').val().trim(),
+        sections: []
+      };
+
+      $('.section').each(function () {
+        const section = {
+          title: $(this).find('.sectionTitle').val().trim(),
+          questions: []
+        };
+
+        $(this).find('.question').each(function () {
+          const question = {
+            text: $(this).find('.questionText').val().trim(),
+            type: $(this).find('.questionTypeSelect').val(),
+            options: []
+          };
+
+          $(this).find('.option').each(function () {
+            const option = {
+              text: $(this).find('.optionText').val().trim(),
+              isCorrect: $(this).find('input[type="radio"]:checked, input[type="checkbox"]:checked').length > 0
+            };
+            question.options.push(option);
+          });
+
+          section.questions.push(question);
+        });
+
+        assessmentData.sections.push(section);
+      });
+
+      return assessmentData;
+    }
+
+  </script>
+</body>
+
+</html>
